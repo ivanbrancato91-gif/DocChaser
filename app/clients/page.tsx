@@ -1,0 +1,31 @@
+'use client'
+import Page from '@/components/Page'
+import Link from 'next/link'
+import { Plus, Search, X, Pencil, Trash2, UserRound } from 'lucide-react'
+import { useEffect, useState } from 'react'
+
+type Client={id:string;name:string;email:string;phone?:string|null;notes?:string|null;caseCount:number;created_at:string}
+
+type FormState={name:string;email:string;phone:string;notes:string}
+const empty:FormState={name:'',email:'',phone:'',notes:''}
+
+export default function Clients(){
+ const [q,setQ]=useState(''); const [data,setData]=useState<Client[]>([]); const [loading,setLoading]=useState(true); const [error,setError]=useState('');
+ const [open,setOpen]=useState(false); const [editing,setEditing]=useState<Client|null>(null); const [form,setForm]=useState<FormState>(empty); const [saving,setSaving]=useState(false); const [message,setMessage]=useState('');
+ const load=()=>{setLoading(true);fetch('/api/clients?q='+encodeURIComponent(q)).then(async r=>{const d=await r.json();if(!r.ok)throw new Error(d.error);setData(d.clients||[])}).catch(e=>setError(e.message)).finally(()=>setLoading(false))}
+ useEffect(()=>{const t=setTimeout(load,180);return()=>clearTimeout(t)},[q])
+ const startCreate=()=>{setEditing(null);setForm(empty);setMessage('');setError('');setOpen(true)}
+ const startEdit=(c:Client)=>{setEditing(c);setForm({name:c.name,email:c.email,phone:c.phone||'',notes:c.notes||''});setMessage('');setError('');setOpen(true)}
+ const save=async()=>{setError('');setMessage('');if(form.name.trim().length<2||!form.email.trim())return setError('Nome ed email sono obbligatori.');setSaving(true);try{const res=await fetch(editing?`/api/clients/${editing.id}`:'/api/clients',{method:editing?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(form)});const d=await res.json();if(!res.ok)throw new Error(d.error||'Errore');setMessage(editing?'Cliente aggiornato.':'Cliente creato.');setOpen(false);load()}catch(e){setError(e instanceof Error?e.message:'Errore')}finally{setSaving(false)}}
+ const remove=async(c:Client)=>{if(!confirm(`Eliminare ${c.name}?`))return;setError('');const res=await fetch(`/api/clients/${c.id}`,{method:'DELETE'});const d=await res.json().catch(()=>({}));if(!res.ok){setError(d.error||'Impossibile eliminare il cliente');return}load()}
+ return <Page title="Clienti" description="Gestisci anagrafiche, contatti e pratiche collegate.">
+  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,marginBottom:14,flexWrap:'wrap'}}>
+   <div className="search-box" style={{maxWidth:520,background:'#fff',border:'1px solid var(--line)',borderRadius:10,padding:'0 12px'}}><Search size={17} color="#64748b"/><input className="search" style={{border:0,boxShadow:'none',flex:1}} value={q} onChange={e=>setQ(e.target.value)} placeholder="Cerca nome o email..."/></div>
+   <button className="btn primary" onClick={startCreate}><Plus size={17}/> Nuovo cliente</button>
+  </div>
+  {message&&<div className="card" style={{padding:'12px 16px',marginBottom:14,color:'#118052',fontWeight:700}}>{message}</div>}
+  {error&&<div className="card" style={{padding:'12px 16px',marginBottom:14,color:'#b42318',fontWeight:700}}>{error}</div>}
+  <div className="card">{loading?<p className="muted">Caricamento...</p>:<table className="table"><thead><tr><th>Cliente</th><th>Contatto</th><th>Pratiche</th><th>Creato</th><th style={{width:150}}>Azioni</th></tr></thead><tbody>{data.map(x=><tr key={x.id}><td><div style={{display:'flex',alignItems:'center',gap:10}}><div className="avatar" style={{width:32,height:32,fontSize:11}}>{x.name.split(/\s+/).map(v=>v[0]).slice(0,2).join('').toUpperCase()}</div><div><Link href={`/clients/${x.id}`} style={{color:'#126eea'}}><b>{x.name}</b></Link><div className="muted" style={{fontSize:11}}>Cliente</div></div></div></td><td><div>{x.email}</div><div className="muted" style={{fontSize:11}}>{x.phone||'Nessun telefono'}</div></td><td><span className="badge blue">{x.caseCount}</span></td><td className="muted">{new Date(x.created_at).toLocaleDateString('it-IT')}</td><td><div style={{display:'flex',gap:6}}><button className="btn ghost" aria-label={`Modifica ${x.name}`} onClick={()=>startEdit(x)}><Pencil size={14}/></button><button className="btn ghost" aria-label={`Elimina ${x.name}`} onClick={()=>remove(x)}><Trash2 size={14}/></button></div></td></tr>)}{!data.length&&<tr><td colSpan={5}><div style={{textAlign:'center',padding:'38px 10px'}}><UserRound size={30} style={{margin:'0 auto 10px',color:'#94a3b8'}}/><b>Nessun cliente</b><p className="muted">Crea il primo cliente per iniziare a gestire le pratiche.</p><button className="btn primary" onClick={startCreate}><Plus size={16}/> Crea cliente</button></div></td></tr>}</tbody></table>}</div>
+  {open&&<div role="dialog" aria-modal="true" className="modal-backdrop"><div className="modal card"><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:18}}><div><h2 style={{margin:0}}>{editing?'Modifica cliente':'Nuovo cliente'}</h2><div className="muted" style={{fontSize:13,marginTop:4}}>Inserisci i dati essenziali del cliente.</div></div><button className="icon-btn" onClick={()=>setOpen(false)} aria-label="Chiudi"><X/></button></div><div className="form-grid-2"><label>Nome e cognome<input className="search" style={{width:'100%',marginTop:6}} value={form.name} onChange={e=>setForm({...form,name:e.target.value})} /></label><label>Email<input className="search" style={{width:'100%',marginTop:6}} type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/></label><label>Telefono<input className="search" style={{width:'100%',marginTop:6}} value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})}/></label><label>Note<input className="search" style={{width:'100%',marginTop:6}} value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})}/></label></div>{error&&<p style={{color:'#b42318',fontWeight:700}}>{error}</p>}<div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:22}}><button className="btn ghost" onClick={()=>setOpen(false)}>Annulla</button><button className="btn primary" disabled={saving} onClick={save}>{saving?'Salvataggio...':editing?'Salva modifiche':'Crea cliente'}</button></div></div></div>}
+ </Page>
+}

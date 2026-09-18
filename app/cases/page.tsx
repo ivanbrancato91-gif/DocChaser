@@ -1,0 +1,20 @@
+'use client'
+import Page from '@/components/Page'
+import Link from 'next/link'
+import { useEffect, useMemo, useState } from 'react'
+import { CalendarClock, Search, SlidersHorizontal } from 'lucide-react'
+
+type CaseRow={id:string;title:string;status:string;due_date:string|null;client?:{name:string;email:string};progress:{received:number;total:number;pending:number}}
+const statusLabel=(s:string)=>s==='completed'?'Completa':s==='review'?'In revisione':s==='closed'?'Chiusa':s==='open'?'Aperta':s
+const statusClass=(s:string)=>s==='completed'||s==='closed'?'green':s==='review'?'blue':'amber'
+
+export default function Cases(){
+ const [rows,setRows]=useState<CaseRow[]>([]),[q,setQ]=useState(''),[status,setStatus]=useState('all'),[due,setDue]=useState('all'),[loading,setLoading]=useState(true),[error,setError]=useState('')
+ const load=()=>{setLoading(true);fetch('/api/cases').then(async r=>{const d=await r.json();if(!r.ok)throw new Error(d.error);setRows(d.cases||[])}).catch(e=>setError(e.message)).finally(()=>setLoading(false))}
+ useEffect(()=>{load()},[])
+ const filtered=useMemo(()=>rows.filter(x=>{const hay=`${x.client?.name||''} ${x.client?.email||''} ${x.title}`.toLowerCase();if(q&&!hay.includes(q.toLowerCase()))return false;if(status!=='all'&&x.status!==status)return false;const now=Date.now();if(due==='overdue'&&!(x.due_date&&new Date(x.due_date).getTime()<now&&x.status!=='completed'))return false;if(due==='7'&&!(x.due_date&&new Date(x.due_date).getTime()>=now&&new Date(x.due_date).getTime()<=now+7*86400000))return false;return true}),[rows,q,status,due])
+ return <Page title="Pratiche" description="Gestisci richieste documentali, scadenze e stato di avanzamento." action={{label:'Nuova pratica',href:'/cases/new'}}>
+  <div className="card" style={{marginBottom:16}}><div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}><div className="search-box" style={{flex:'1 1 280px',maxWidth:520}}><Search size={17} color="#64748b"/><input className="search" value={q} onChange={e=>setQ(e.target.value)} placeholder="Cerca cliente o pratica..."/></div><div style={{display:'flex',alignItems:'center',gap:7}}><SlidersHorizontal size={16} className="muted"/><select value={status} onChange={e=>setStatus(e.target.value)} style={{width:'auto',minWidth:150}}><option value="all">Tutti gli stati</option><option value="open">Aperte</option><option value="review">In revisione</option><option value="completed">Complete</option><option value="closed">Chiuse</option></select></div><select value={due} onChange={e=>setDue(e.target.value)} style={{width:'auto',minWidth:150}}><option value="all">Tutte le scadenze</option><option value="7">Entro 7 giorni</option><option value="overdue">Scadute</option></select></div></div>
+  <div className="card">{loading?<p className="muted">Caricamento...</p>:error?<p style={{color:'#b42318'}}>{error}</p>:<table className="table"><thead><tr><th>Cliente</th><th>Pratica</th><th>Stato</th><th>Documenti</th><th>Scadenza</th></tr></thead><tbody>{filtered.map(x=>{const overdue=!!(x.due_date&&new Date(x.due_date)<new Date()&&x.status!=='completed');return <tr key={x.id}><td><b>{x.client?.name||'—'}</b><div className="muted" style={{fontSize:11}}>{x.client?.email}</div></td><td><Link href={`/cases/${x.id}`} style={{color:'#126eea',fontWeight:700}}>{x.title}</Link></td><td><span className={'badge '+statusClass(x.status)}>{statusLabel(x.status)}</span></td><td><b>{x.progress.received}</b>/{x.progress.total}{x.progress.pending>0&&<span className="muted" style={{fontSize:11}}> · {x.progress.pending} mancanti</span>}</td><td><span style={{display:'inline-flex',alignItems:'center',gap:5,color:overdue?'#b42318':undefined,fontWeight:overdue?700:400}}>{x.due_date?<><CalendarClock size={14}/>{new Date(x.due_date).toLocaleDateString('it-IT')}</>:'—'}</span></td></tr>})}{!filtered.length&&<tr><td colSpan={5}><div style={{textAlign:'center',padding:'40px 10px'}}><b>Nessuna pratica trovata</b><p className="muted">Modifica i filtri o crea una nuova pratica.</p><Link className="btn primary" href="/cases/new">Nuova pratica</Link></div></td></tr>}</tbody></table>}</div>
+ </Page>
+}

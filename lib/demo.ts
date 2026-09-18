@@ -1,0 +1,3 @@
+export const stats=[['Pratiche attive','24','+12%'],['In attesa documenti','8','−20%'],['In revisione','6',''],['Pratiche complete','18','+28%']];
+export const cases=[['Mario Bianchi','Dichiarazione 2024','In attesa','4/8'],['Laura Verdi','ISEE 2024','In revisione','6/6'],['Giorgio Neri','Contratto affitto','In attesa','3/7'],['Paolo Romano','Dichiarazione 2024','Completa','8/8']];
+export const activities=[['Nuovo documento caricato','Mario Bianchi — Dichiarazione dei redditi','5 min fa'],['Pratica completata','Laura Verdi — Pratica 2024','1 ora fa'],['Richiesta di correzione','Giorgio Neri — Carta d’identità','2 ore fa'],['Promemoria inviato','Paolo Romano — Documenti mancanti','3 ore fa']];

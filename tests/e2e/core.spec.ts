@@ -1,0 +1,3 @@
+import { test, expect } from '@playwright/test'
+test('landing loads and primary CTA is visible', async ({ page }) => { await page.goto('/'); await expect(page.getByText('DocChaser')).toBeVisible(); await expect(page.getByRole('link', { name: /inizia/i })).toBeVisible() })
+test('health endpoint exposes configuration state without secrets', async ({ request }) => { const res = await request.get('/api/health'); expect(res.ok()).toBeTruthy(); const json = await res.json(); expect(json.ok).toBe(true); expect(json.service).toBe('docchaser'); expect(json.configured).toBeUndefined(); expect(JSON.stringify(json)).not.toMatch(/sk-[A-Za-z0-9]/) })
