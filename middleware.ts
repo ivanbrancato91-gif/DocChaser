@@ -1,4 +1,14 @@
+import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
+
+const SUPABASE_URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  "https://qbjpavqjndnamygldchv.supabase.co";
+
+const SUPABASE_PUBLISHABLE_KEY =
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  "sb_publishable_kxJ4yihs60CfjPpuvH4RfA_iYa0Bb1h";
 
 const PUBLIC_ROUTES = [
   "/",
@@ -14,7 +24,15 @@ const PUBLIC_ROUTES = [
   "/features",
 ];
 
-export function middleware(req: NextRequest) {
+function isPublicRoute(pathname: string) {
+  return (
+    PUBLIC_ROUTES.includes(pathname) ||
+    pathname === "/portal" ||
+    pathname.startsWith("/portal/")
+  );
+}
+
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (
@@ -29,29 +47,44 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Tokenized client portals are intentionally public: the portal token
-  // is the authentication mechanism for these routes.
-  if (pathname === "/portal" || pathname.startsWith("/portal/")) {
+  if (isPublicRoute(pathname)) {
     return NextResponse.next();
   }
 
-  if (PUBLIC_ROUTES.includes(pathname)) {
-    return NextResponse.next();
-  }
+  let response = NextResponse.next({ request: req });
 
-  const token =
-    req.cookies.get("dc_session")?.value ||
-    req.cookies.get("sb-access-token")?.value ||
-    req.cookies.get("access_token")?.value;
+  const supabase = createServerClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+    cookies: {
+      getAll() {
+        return req.cookies.getAll();
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value }) => req.cookies.set(name, value));
+        response = NextResponse.next({ request: req });
+        cookiesToSet.forEach(({ name, value, options }) => {
+          response.cookies.set(name, value, options);
+        });
+      },
+    },
+  });
 
-  if (!token) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", pathname);
-    return NextResponse.redirect(url);
+
+    const redirectResponse = NextResponse.redirect(url);
+    response.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie);
+    });
+    return redirectResponse;
   }
 
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {
