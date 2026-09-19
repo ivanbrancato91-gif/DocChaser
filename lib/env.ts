@@ -1,8 +1,16 @@
-const REQUIRED_ENV = [
-  "NEXT_PUBLIC_SUPABASE_URL",
-  "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
-  "SUPABASE_SECRET_KEY",
+const REQUIRED_GROUPS = [
+  { label: "NEXT_PUBLIC_SUPABASE_URL", keys: ["NEXT_PUBLIC_SUPABASE_URL"] },
+  {
+    label: "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+    keys: ["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "NEXT_PUBLIC_SUPABASE_ANON_KEY"],
+  },
+  {
+    label: "SUPABASE_SECRET_KEY",
+    keys: ["SUPABASE_SECRET_KEY", "SUPABASE_SERVICE_ROLE_KEY"],
+  },
 ] as const;
+
+const configured = (keys: readonly string[]) => keys.some((key) => !!process.env[key]);
 
 const OPTIONAL_ENV = [
   "OPENAI_API_KEY",
@@ -18,7 +26,7 @@ const OPTIONAL_ENV = [
 
 export function getEnvironmentReadiness() {
   const required = Object.fromEntries(
-    REQUIRED_ENV.map((key) => [key, !!process.env[key]])
+    REQUIRED_GROUPS.map(({ label, keys }) => [label, configured(keys)])
   );
 
   const providers = Object.fromEntries(
@@ -28,7 +36,7 @@ export function getEnvironmentReadiness() {
   return {
     required,
     providers,
-    ready: REQUIRED_ENV.every((key) => !!process.env[key]),
+    ready: REQUIRED_GROUPS.every(({ keys }) => configured(keys)),
   };
 }
 
@@ -37,7 +45,9 @@ export function getEnvironmentReadiness() {
  * Restituisce semplicemente la lista delle variabili mancanti.
  */
 export function assertServerEnvironment() {
-  const missing = REQUIRED_ENV.filter((key) => !process.env[key]);
+  const missing = REQUIRED_GROUPS
+    .filter(({ keys }) => !configured(keys))
+    .map(({ label }) => label);
 
   return {
     ok: missing.length === 0,
