@@ -17,7 +17,6 @@ const PUBLIC_ROUTES = [
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Lascia passare tutto ciò che non deve essere controllato
   if (
     pathname.startsWith("/api") ||
     pathname.startsWith("/_next") ||
@@ -30,12 +29,10 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Pagine pubbliche
   if (PUBLIC_ROUTES.includes(pathname)) {
     return NextResponse.next();
   }
 
-  // Controllo cookie JWT (nessun Supabase qui)
   const token =
     req.cookies.get("dc_session")?.value ||
     req.cookies.get("sb-access-token")?.value ||
@@ -52,5 +49,6 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
+  runtime: "nodejs",
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
