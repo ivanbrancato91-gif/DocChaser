@@ -17,14 +17,15 @@ const PUBLIC_ROUTES = [
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Lascia passare API e asset statici
+  // Lascia passare API, asset, immagini e file statici
   if (
     pathname.startsWith("/api") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
     pathname.startsWith("/icon") ||
     pathname.startsWith("/images") ||
-    pathname.startsWith("/fonts")
+    pathname.startsWith("/public") ||
+    pathname.includes(".")
   ) {
     return NextResponse.next();
   }
@@ -37,20 +38,21 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Controllo sessione Supabase
-  const session =
-    req.cookies.get("sb-access-token") ||
-    req.cookies.get("sb-access-token.0");
+  // Controllo cookie di autenticazione
+  const token =
+    req.cookies.get("sb-access-token")?.value ??
+    req.cookies.get("access-token")?.value ??
+    req.cookies.get("token")?.value;
 
-  if (!session) {
-    const login = new URL("/login", req.url);
-    login.searchParams.set("redirect", pathname);
-    return NextResponse.redirect(login);
+  if (!token) {
+    const url = new URL("/login", req.url);
+    url.searchParams.set("redirect", pathname);
+    return NextResponse.redirect(url);
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/((?!.*\\.).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)"],
 };
