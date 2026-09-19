@@ -1,0 +1,126 @@
+name: Sync Vercel production environment
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Check available configuration
+        id: check
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          STRIPE_STARTER_MONTHLY_PRICE_ID: ${{ secrets.STRIPE_STARTER_MONTHLY_PRICE_ID }}
+          STRIPE_STUDIO_MONTHLY_PRICE_ID: ${{ secrets.STRIPE_STUDIO_MONTHLY_PRICE_ID }}
+          STRIPE_TEAM_MONTHLY_PRICE_ID: ${{ secrets.STRIPE_TEAM_MONTHLY_PRICE_ID }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          present=0
+          for name in VERCEL_TOKEN SUPABASE_SECRET_KEY SUPABASE_SERVICE_ROLE_KEY NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY NEXT_PUBLIC_SUPABASE_ANON_KEY STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET STRIPE_STARTER_MONTHLY_PRICE_ID STRIPE_STUDIO_MONTHLY_PRICE_ID STRIPE_TEAM_MONTHLY_PRICE_ID RESEND_API_KEY RESEND_FROM_EMAIL OPENAI_API_KEY CRON_SECRET; do
+            if [ -n "${!name:-}" ]; then
+              echo "$name=present"
+              present=1
+            else
+              echo "$name=missing"
+            fi
+          done
+          echo "has_config=$present" >> "$GITHUB_OUTPUT"
+
+      - name: Stop safely when no Vercel credential is available
+        if: ${{ env.VERCEL_TOKEN == '' }}
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          echo "No VERCEL_TOKEN GitHub secret is configured; nothing to sync."
+
+      - name: Link Vercel project
+        if: ${{ env.VERCEL_TOKEN != '' }}
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          vercel link --yes --project doc-chaser --scope ivanbrancato91-3124 --token "$VERCEL_TOKEN"
+
+      - name: Sync production environment variables
+        if: ${{ env.VERCEL_TOKEN != '' }}
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          NEXT_PUBLIC_SUPABASE_URL: https://qbjpavqjndnamygldchv.supabase.co
+          NEXT_PUBLIC_APP_URL: https://doc-chaser-one.vercel.app
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          STRIPE_STARTER_MONTHLY_PRICE_ID: ${{ secrets.STRIPE_STARTER_MONTHLY_PRICE_ID }}
+          STRIPE_STUDIO_MONTHLY_PRICE_ID: ${{ secrets.STRIPE_STUDIO_MONTHLY_PRICE_ID }}
+          STRIPE_TEAM_MONTHLY_PRICE_ID: ${{ secrets.STRIPE_TEAM_MONTHLY_PRICE_ID }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+
+          sync_env() {
+            name="$1"
+            value="$2"
+            sensitive="$3"
+            if [ -z "$value" ]; then
+              echo "$name skipped (no GitHub secret/value)"
+              return
+            fi
+            if [ "$sensitive" = "true" ]; then
+              printf '%s' "$value" | vercel env add "$name" production --sensitive --force --token "$VERCEL_TOKEN" --scope ivanbrancato91-3124
+            else
+              printf '%s' "$value" | vercel env add "$name" production --force --token "$VERCEL_TOKEN" --scope ivanbrancato91-3124
+            fi
+            echo "$name synchronized"
+          }
+
+          sync_env NEXT_PUBLIC_SUPABASE_URL "$NEXT_PUBLIC_SUPABASE_URL" false
+          sync_env NEXT_PUBLIC_APP_URL "$NEXT_PUBLIC_APP_URL" false
+          sync_env SUPABASE_SECRET_KEY "$SUPABASE_SECRET_KEY" true
+          sync_env SUPABASE_SERVICE_ROLE_KEY "$SUPABASE_SERVICE_ROLE_KEY" true
+          sync_env NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY "$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY" false
+          sync_env NEXT_PUBLIC_SUPABASE_ANON_KEY "$NEXT_PUBLIC_SUPABASE_ANON_KEY" false
+          sync_env STRIPE_SECRET_KEY "$STRIPE_SECRET_KEY" true
+          sync_env STRIPE_WEBHOOK_SECRET "$STRIPE_WEBHOOK_SECRET" true
+          sync_env STRIPE_STARTER_MONTHLY_PRICE_ID "$STRIPE_STARTER_MONTHLY_PRICE_ID" false
+          sync_env STRIPE_STUDIO_MONTHLY_PRICE_ID "$STRIPE_STUDIO_MONTHLY_PRICE_ID" false
+          sync_env STRIPE_TEAM_MONTHLY_PRICE_ID "$STRIPE_TEAM_MONTHLY_PRICE_ID" false
+          sync_env RESEND_API_KEY "$RESEND_API_KEY" true
+          sync_env RESEND_FROM_EMAIL "$RESEND_FROM_EMAIL" false
+          sync_env OPENAI_API_KEY "$OPENAI_API_KEY" true
+          sync_env CRON_SECRET "$CRON_SECRET" true
+
+      - name: Redeploy production with synchronized configuration
+        if: ${{ env.VERCEL_TOKEN != '' && steps.check.outputs.has_config == '1' }}
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          vercel --prod --yes --token "$VERCEL_TOKEN" --scope ivanbrancato91-3124
