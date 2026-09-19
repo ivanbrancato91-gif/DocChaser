@@ -1,9 +1,9 @@
 import fs from 'node:fs'
 
-const required = [
-  'NEXT_PUBLIC_SUPABASE_URL',
-  'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
-  'SUPABASE_SECRET_KEY',
+const requiredGroups = [
+  { label: 'NEXT_PUBLIC_SUPABASE_URL', keys: ['NEXT_PUBLIC_SUPABASE_URL'] },
+  { label: 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', keys: ['NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'NEXT_PUBLIC_SUPABASE_ANON_KEY'] },
+  { label: 'SUPABASE_SECRET_KEY', keys: ['SUPABASE_SECRET_KEY', 'SUPABASE_SERVICE_ROLE_KEY'] },
 ]
 const productionProviders = [
   'STRIPE_SECRET_KEY',
@@ -18,8 +18,10 @@ const productionProviders = [
 ]
 const publicConfig = ['NEXT_PUBLIC_APP_URL']
 
-const values = new Map([...required, ...productionProviders, ...publicConfig].map(k => [k, process.env[k] || '']))
+const requiredKeys = requiredGroups.flatMap(group => group.keys)
+const values = new Map([...requiredKeys, ...productionProviders, ...publicConfig].map(k => [k, process.env[k] || '']))
 const missing = (keys) => keys.filter(k => !values.get(k))
+const missingRequiredGroups = requiredGroups.filter(group => !group.keys.some(k => values.get(k))).map(group => group.label)
 
 const invalid = []
 const supabaseUrl = values.get('NEXT_PUBLIC_SUPABASE_URL')
@@ -30,12 +32,15 @@ const stripe = values.get('STRIPE_SECRET_KEY')
 if (stripe && !stripe.startsWith('sk_live_')) invalid.push('STRIPE_SECRET_KEY must be a LIVE key for production')
 
 const envExample = fs.readFileSync('.env.example','utf8')
-for (const key of [...required, ...productionProviders, ...publicConfig]) {
+for (const group of requiredGroups) {
+  if (!group.keys.some(key => new RegExp(`^${key}=`, 'm').test(envExample))) invalid.push(`.env.example missing one of: ${group.keys.join(', ')}`)
+}
+for (const key of [...productionProviders, ...publicConfig]) {
   if (!new RegExp(`^${key}=`, 'm').test(envExample)) invalid.push(`.env.example missing ${key}`)
 }
 
 console.log('DocChaser production environment audit')
-console.log(`Core: ${missing(required).length === 0 ? 'READY' : 'MISSING ' + missing(required).join(', ')}`)
+console.log(`Core: ${missingRequiredGroups.length === 0 ? 'READY' : 'MISSING ' + missingRequiredGroups.join(', ')}`)
 console.log(`Providers: ${missing(productionProviders).length === 0 ? 'READY' : 'MISSING ' + missing(productionProviders).join(', ')}`)
 console.log(`Public URL: ${appUrl ? 'SET' : 'MISSING NEXT_PUBLIC_APP_URL'}`)
 
@@ -44,7 +49,7 @@ if (invalid.length) {
   for (const item of invalid) console.error(`- ${item}`)
   process.exit(1)
 }
-if (process.env.CI === 'true' && missing([...required, ...productionProviders, ...publicConfig]).length) {
+if (process.env.CI === 'true' && (missingRequiredGroups.length || missing(productionProviders).length || missing(publicConfig).length)) {
   console.error('\nCI production audit failed: required production variables are not configured.')
   process.exit(1)
 }
