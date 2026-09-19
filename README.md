@@ -1,6 +1,6 @@
 # DocChaser
 
-Version: 1.0.6-mobile-pwa
+Version: 4.0.0
 
 DocChaser is a SaaS for professional firms to collect client documents through secure case links, private storage and human-reviewed AI assistance.
 
