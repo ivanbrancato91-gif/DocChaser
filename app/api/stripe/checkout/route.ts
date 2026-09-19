@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: 'Esiste già un abbonamento. Usa Gestisci abbonamento per cambiare piano o metodo di pagamento.' }, { status: 409 })
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin
   const params = new URLSearchParams()
   params.set('mode', 'subscription')
   params.set('line_items[0][price]', price)
