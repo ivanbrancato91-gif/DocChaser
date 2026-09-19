@@ -14,15 +14,14 @@ const PUBLIC_ROUTES = [
   "/features",
 ];
 
-export default function middleware(req: NextRequest) {
+export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Escludi API, assets e file statici
+  // Lascia passare tutto ciò che non deve essere controllato
   if (
     pathname.startsWith("/api") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
-    pathname.startsWith("/icon") ||
     pathname.startsWith("/manifest") ||
     pathname.startsWith("/robots") ||
     pathname.startsWith("/sitemap") ||
@@ -31,23 +30,22 @@ export default function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Lascia passare il portale clienti
-  if (pathname.startsWith("/portal/")) {
-    return NextResponse.next();
-  }
-
   // Pagine pubbliche
   if (PUBLIC_ROUTES.includes(pathname)) {
     return NextResponse.next();
   }
 
-  // Controllo cookie (Edge-safe)
-  const session = req.cookies.get("dc_session")?.value;
+  // Controllo cookie JWT (nessun Supabase qui)
+  const token =
+    req.cookies.get("dc_session")?.value ||
+    req.cookies.get("sb-access-token")?.value ||
+    req.cookies.get("access_token")?.value;
 
-  if (!session) {
-    const login = new URL("/login", req.url);
-    login.searchParams.set("redirect", pathname);
-    return NextResponse.redirect(login);
+  if (!token) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set("next", pathname);
+    return NextResponse.redirect(url);
   }
 
   return NextResponse.next();
