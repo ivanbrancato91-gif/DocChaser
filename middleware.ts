@@ -29,6 +29,12 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // Tokenized client portals are intentionally public: the portal token
+  // is the authentication mechanism for these routes.
+  if (pathname === "/portal" || pathname.startsWith("/portal/")) {
+    return NextResponse.next();
+  }
+
   if (PUBLIC_ROUTES.includes(pathname)) {
     return NextResponse.next();
   }
