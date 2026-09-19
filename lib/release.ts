@@ -1,1 +1,1 @@
-export const DOCCHASER_VERSION = '3.6.0'
+export const DOCCHASER_VERSION = '4.0.0'
