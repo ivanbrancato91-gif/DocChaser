@@ -33,9 +33,15 @@ for (const [name,file,needle] of contracts) {
   text.includes(needle) ? ok(name,'contract present') : fail(name,`missing ${needle}`)
 }
 
-const envKeys = ['NEXT_PUBLIC_SUPABASE_URL','NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY','SUPABASE_SECRET_KEY','STRIPE_SECRET_KEY','STRIPE_WEBHOOK_SECRET','STRIPE_STARTER_MONTHLY_PRICE_ID','STRIPE_STUDIO_MONTHLY_PRICE_ID','STRIPE_TEAM_MONTHLY_PRICE_ID','RESEND_API_KEY','RESEND_FROM_EMAIL','OPENAI_API_KEY','CRON_SECRET','NEXT_PUBLIC_APP_URL']
-const missing = envKeys.filter(k => !process.env[k])
-if (missing.length) fail('production environment', `missing ${missing.join(', ')}`)
+const envGroups = [
+  { label: 'NEXT_PUBLIC_SUPABASE_URL', keys: ['NEXT_PUBLIC_SUPABASE_URL'] },
+  { label: 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', keys: ['NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'NEXT_PUBLIC_SUPABASE_ANON_KEY'] },
+  { label: 'SUPABASE_SECRET_KEY', keys: ['SUPABASE_SECRET_KEY', 'SUPABASE_SERVICE_ROLE_KEY'] },
+]
+const envProviders = ['STRIPE_SECRET_KEY','STRIPE_WEBHOOK_SECRET','STRIPE_STARTER_MONTHLY_PRICE_ID','STRIPE_STUDIO_MONTHLY_PRICE_ID','STRIPE_TEAM_MONTHLY_PRICE_ID','RESEND_API_KEY','RESEND_FROM_EMAIL','OPENAI_API_KEY','CRON_SECRET']
+const missingGroups = envGroups.filter(group => !group.keys.some(key => process.env[key])).map(group => group.label)
+const missingProviders = envProviders.filter(key => !process.env[key])
+if (missingGroups.length || missingProviders.length) fail('production environment', `missing core: ${missingGroups.join(', ') || 'none'}; missing providers: ${missingProviders.join(', ') || 'none'}`)
 else ok('production environment','all required variables are set')
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL
